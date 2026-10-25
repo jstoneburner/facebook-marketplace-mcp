@@ -4,7 +4,8 @@ import os from "node:os";
 import crypto from "node:crypto";
 import type { SavedMonitor, SearchParams } from "../facebook/types.js";
 
-const STORAGE_DIR = path.join(os.homedir(), ".fb-marketplace");
+const STORAGE_DIR =
+  process.env.FB_STORAGE_DIR ?? path.join(os.homedir(), ".fb-marketplace");
 const MONITORS_FILE = path.join(STORAGE_DIR, "monitors.json");
 
 function ensureStorageDir() {

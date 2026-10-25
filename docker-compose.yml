@@ -1,0 +1,26 @@
+services:
+  fb-marketplace-mcp:
+    build: .
+    restart: unless-stopped
+    # Bind to a specific interface (LAN or Tailscale IP), never 0.0.0.0 on a public NIC.
+    ports:
+      - "${BIND_IP:-127.0.0.1}:3939:3939"
+    environment:
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set to the host:port clients use, comma-separated}
+      MCP_AUTH_TOKEN_FILE: /run/secrets/mcp_token
+      FB_COOKIES_FILE: /run/secrets/fb_cookies
+      FB_USER_AGENT: ${FB_USER_AGENT:-}
+    secrets: [mcp_token, fb_cookies]
+    volumes:
+      - fb-data:/data
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+secrets:
+  mcp_token:
+    file: ./secrets/mcp_token
+  fb_cookies:
+    file: ./secrets/fb_cookies
+volumes:
+  fb-data:

@@ -124,3 +124,37 @@ The server self-rate-limits to 3 requests/minute with random jitter to avoid det
 - **Fragile** — `doc_id` values change on Facebook deploys
 - **Rate limited** — aggressive use may trigger CAPTCHAs or account flags
 - **No write operations** — search/read only, no messaging or listing creation
+
+---
+
+## Self-hosted fork (`selfhost` branch)
+
+Changes from upstream: runs anywhere (Windows/Linux/Docker), no Chrome profile needed, and can serve MCP over authenticated HTTP.
+
+### Cookies
+Log into Facebook in a browser, export the cookies for facebook.com (devtools, or a cookie-export extension), and provide **either**:
+- `FB_COOKIES_FILE=/path/to/file` (preferred; use a Docker secret), or
+- `FB_COOKIES="c_user=...; xs=..."` (a raw Cookie header, a `{name: value}` JSON object, or a JSON array export).
+
+Set `FB_USER_AGENT` and `FB_CH_PLATFORM` (`Windows`, `Linux`, `macOS`) to match the browser the cookies came from. When the session expires you'll get an error asking you to re-export. Consider a throwaway account: this violates Facebook's ToS.
+
+Other env: `FB_SEARCH_DOC_ID` / `FB_LOCATION_DOC_ID` (override rotated doc_ids), `FB_STORAGE_DIR` (monitors), `FB_MAX_RPM` (default 3).
+
+### HTTP transport (`MCP_TRANSPORT=http`)
+Security model:
+- **Bearer token required** (`MCP_AUTH_TOKEN` or `MCP_AUTH_TOKEN_FILE`, 32+ chars; the server refuses to start otherwise). Compared in constant time. Generate one with `openssl rand -hex 32`.
+- Binds to `127.0.0.1` by default. In Docker, publish only on a specific LAN/Tailscale IP via `BIND_IP`.
+- `Host` header must be in `ALLOWED_HOSTS` and any request carrying an `Origin` header is rejected (DNS-rebinding / browser CSRF defense).
+- Per-IP lockout after 10 failed auth attempts a minute, 64 KB body limit, stateless (no sessions), generic error messages.
+- **No TLS built in.** Use Tailscale, or a reverse proxy with TLS, if the traffic leaves a trusted network: the bearer token is sent in cleartext otherwise.
+- The container runs as non-root, read-only, all capabilities dropped. Cookies and token are mounted as secrets, never in the image or environment.
+- Listing titles and descriptions are untrusted text from strangers. They reach the model as tool output, so treat them as possible prompt injection. All tools here are read-only against Facebook (monitors only write a local JSON file), which limits the damage.
+
+```bash
+mkdir secrets
+openssl rand -hex 32 > secrets/mcp_token
+# paste exported cookies into secrets/fb_cookies
+BIND_IP=192.168.1.x ALLOWED_HOSTS=nas.local:3939 docker compose up -d --build
+claude mcp add --transport http fb-marketplace http://nas.local:3939/mcp \
+  --header "Authorization: Bearer $(cat secrets/mcp_token)"
+```

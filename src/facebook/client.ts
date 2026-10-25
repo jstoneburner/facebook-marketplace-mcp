@@ -6,6 +6,7 @@ import type {
 } from "./types.js";
 import {
   extractChromeCookies,
+  loadCookiesFromEnv,
   cookiesToHeader,
   getCookieValue,
 } from "./auth.js";
@@ -22,15 +23,18 @@ import { RateLimiter } from "../utils/rate-limit.js";
 const GRAPHQL_URL = "https://www.facebook.com/api/graphql/";
 const MARKETPLACE_URL = "https://www.facebook.com/marketplace/";
 
+// Should match the browser the cookies were exported from.
 const USER_AGENT =
+  process.env.FB_USER_AGENT ||
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+const CH_PLATFORM = process.env.FB_CH_PLATFORM ?? "macOS";
 
 const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent": USER_AGENT,
   "Accept-Language": "en-US,en;q=0.9",
   "sec-ch-ua": '"Chromium";v="146", "Google Chrome";v="146", "Not?A_Brand";v="99"',
   "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"macOS"',
+  "sec-ch-ua-platform": `"${CH_PLATFORM}"`,
   "sec-fetch-dest": "document",
   "sec-fetch-mode": "navigate",
   "sec-fetch-site": "none",
@@ -60,7 +64,9 @@ export class FacebookClient {
   }
 
   async initSession(): Promise<FacebookSession> {
-    const cookies = extractChromeCookies("facebook.com", this.chromeProfile);
+    const cookies =
+      loadCookiesFromEnv() ??
+      (await extractChromeCookies("facebook.com", this.chromeProfile));
 
     if (cookies.length === 0) {
       throw new Error(
@@ -186,7 +192,9 @@ export class FacebookClient {
     if (res.status === 401 || res.status === 403) {
       // Session expired — clear and retry once
       this.session = null;
-      throw new Error("Session expired. Re-initializing on next request.");
+      throw new Error(
+        "Facebook rejected the session (expired or challenged). Re-export cookies from a logged-in browser."
+      );
     }
 
     if (!res.ok) {
