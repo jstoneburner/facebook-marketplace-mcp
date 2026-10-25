@@ -1,9 +1,9 @@
 // Known GraphQL doc_ids for Facebook Marketplace.
 // These are hashed operation identifiers that Facebook rotates on deploys.
-// Run `npm run capture-queries` to discover current values if these break.
+// Search id refreshed 2026-10-24 via capture-queries. Run `npm run capture-queries` to discover current values if these break.
 
 export const MARKETPLACE_SEARCH_DOC_ID =
-  process.env.FB_SEARCH_DOC_ID ?? "7111939778879383";
+  process.env.FB_SEARCH_DOC_ID ?? "28925613270401973";
 export const LOCATION_SEARCH_DOC_ID =
   process.env.FB_LOCATION_DOC_ID ?? "5585904654783609";
 

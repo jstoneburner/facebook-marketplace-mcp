@@ -83,6 +83,8 @@ async function main() {
             opName = "marketplace_search";
           } else if (vars.params?.caller === "MARKETPLACE") {
             opName = "city_street_search";
+          } else if (variables.toLowerCase().includes("zelda")) {
+            opName = "marketplace_search";
           } else if (vars.targetId) {
             opName = "listing_detail";
           }
@@ -93,7 +95,7 @@ async function main() {
         captured.push({
           docId,
           operationName: opName,
-          variables: variables.slice(0, 200),
+          variables: variables.slice(0, 400),
           timestamp: Date.now(),
         });
 
@@ -108,22 +110,22 @@ async function main() {
     timeout: 30000,
   });
 
-  console.log("\nPage loaded. Performing a sample search...");
-  await page.waitForTimeout(3000);
-
-  // Try to search
-  try {
-    const searchInput = page.locator(
-      'input[placeholder*="Search"], input[aria-label*="Search"]'
+  if (page.url().includes("/login") || page.url().includes("checkpoint")) {
+    console.log(
+      `\nFacebook is asking for login/verification (${page.url()}). ` +
+        "Stop here: resolve it manually in a normal browser, don't retry in a loop."
     );
-    if (await searchInput.isVisible({ timeout: 5000 })) {
-      await searchInput.fill("laptop");
-      await searchInput.press("Enter");
-      await page.waitForTimeout(5000);
-    }
-  } catch {
-    console.log("Could not find search input. Try searching manually.");
+    await browser.close();
+    return;
   }
+
+  console.log("\nPage loaded. Opening a sample search...");
+  await page.waitForTimeout(3000);
+  await page.goto("https://www.facebook.com/marketplace/search/?query=zelda", {
+    waitUntil: "networkidle",
+    timeout: 30000,
+  });
+  await page.waitForTimeout(5000);
 
   console.log("\n⏳ Waiting 30 seconds for more queries...");
   console.log("   Browse around Marketplace to capture more doc_ids.");
@@ -156,9 +158,16 @@ async function main() {
     JSON.stringify([...unique.values()], null, 2)
   );
   console.log(`\nSaved to ${outputPath}`);
-  console.log(
-    "\nUpdate src/facebook/queries.ts with the new doc_id values if they changed."
-  );
+  const envName: Record<string, string> = {
+    marketplace_search: "FB_SEARCH_DOC_ID",
+    city_street_search: "FB_LOCATION_DOC_ID",
+  };
+  console.log("\nSet these env vars if they differ from the defaults:");
+  for (const q of unique.values()) {
+    if (envName[q.operationName]) {
+      console.log(`  ${envName[q.operationName]}=${q.docId}`);
+    }
+  }
 }
 
 main().catch(console.error);
