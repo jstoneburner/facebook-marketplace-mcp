@@ -3,33 +3,33 @@
 /**
  * Query Capture Script
  *
- * Launches a browser, navigates Facebook Marketplace, and intercepts
- * GraphQL requests to discover current doc_id values.
+ * Opens a separate Firefox window (NOT your everyday browser profile), loads the
+ * Facebook cookies from secrets/fb_cookies, browses Marketplace like a normal
+ * user, and records the GraphQL doc_ids it sees.
  *
  * Prerequisites:
  *   npm install -D playwright
- *   npx playwright install chromium
+ *   npx playwright install firefox
  *
  * Usage:
  *   npm run capture-queries
  *
- * This will:
- * 1. Open Chromium with your Chrome profile (so you're logged in)
- * 2. Navigate to Facebook Marketplace
- * 3. Perform a sample search
- * 4. Log all GraphQL doc_ids it finds
- * 5. Save them to src/facebook/queries.ts
+ * Env (defaults point at ./secrets):
+ *   FB_COOKIES_FILE, FB_USER_AGENT_FILE
+ *
+ * Output: captured-queries.json plus ready-to-paste FB_*_DOC_ID lines.
+ * Do not run this repeatedly; a few times per doc_id rotation is plenty.
  */
 
-import { chromium } from "playwright";
+import { firefox } from "playwright";
 import path from "node:path";
-import os from "node:os";
 import fs from "node:fs";
+import { loadCookiesFromEnv } from "../src/facebook/auth.js";
 
-const CHROME_USER_DATA = path.join(
-  os.homedir(),
-  "Library/Application Support/Google/Chrome"
-);
+const root = path.join(import.meta.dirname ?? ".", "..");
+process.env.FB_COOKIES_FILE ??= path.join(root, "secrets", "fb_cookies");
+const uaFile =
+  process.env.FB_USER_AGENT_FILE ?? path.join(root, "secrets", "fb_user_agent.txt");
 
 interface CapturedQuery {
   docId: string;
@@ -43,13 +43,27 @@ async function main() {
 
   const captured: CapturedQuery[] = [];
 
-  const browser = await chromium.launchPersistentContext(CHROME_USER_DATA, {
-    headless: false,
-    channel: "chrome",
-    args: ["--disable-blink-features=AutomationControlled"],
-  });
+  const cookies = loadCookiesFromEnv();
+  if (!cookies?.length) throw new Error("No cookies found in FB_COOKIES_FILE");
 
-  const page = browser.pages()[0] ?? (await browser.newPage());
+  const browser = await firefox.launch({ headless: false });
+  const context = await browser.newContext({
+    userAgent: fs.existsSync(uaFile)
+      ? fs.readFileSync(uaFile, "utf8").trim()
+      : undefined,
+  });
+  await context.addCookies(
+    cookies.map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: ".facebook.com",
+      path: "/",
+      secure: true,
+      httpOnly: c.httpOnly,
+      sameSite: "None" as const,
+    }))
+  );
+  const page = await context.newPage();
 
   // Intercept GraphQL requests
   page.on("request", (req) => {
@@ -136,11 +150,7 @@ async function main() {
   }
 
   // Save to a JSON file for reference
-  const outputPath = path.join(
-    import.meta.dirname ?? ".",
-    "..",
-    "captured-queries.json"
-  );
+  const outputPath = path.join(root, "captured-queries.json");
   fs.writeFileSync(
     outputPath,
     JSON.stringify([...unique.values()], null, 2)

@@ -5,3 +5,4 @@ dist/
 *.db
 /tmp/
 secrets/
+captured-queries.json
