@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import type {
   FacebookSession,
   SearchParams,
@@ -25,16 +26,27 @@ const MARKETPLACE_URL = "https://www.facebook.com/marketplace/";
 
 // Should match the browser the cookies were exported from.
 const USER_AGENT =
-  process.env.FB_USER_AGENT ||
+  (process.env.FB_USER_AGENT_FILE
+    ? fs.readFileSync(process.env.FB_USER_AGENT_FILE, "utf8").trim()
+    : process.env.FB_USER_AGENT) ||
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 const CH_PLATFORM = process.env.FB_CH_PLATFORM ?? "macOS";
+
+// Firefox and Safari don't send Chromium client hints; sending them with a
+// non-Chromium UA is an obvious mismatch.
+const IS_CHROMIUM = /Chrome\/|Edg\//.test(USER_AGENT);
+const CHROME_MAJOR = USER_AGENT.match(/Chrome\/(\d+)/)?.[1] ?? "146";
 
 const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent": USER_AGENT,
   "Accept-Language": "en-US,en;q=0.9",
-  "sec-ch-ua": '"Chromium";v="146", "Google Chrome";v="146", "Not?A_Brand";v="99"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": `"${CH_PLATFORM}"`,
+  ...(IS_CHROMIUM
+    ? {
+        "sec-ch-ua": `"Chromium";v="${CHROME_MAJOR}", "Google Chrome";v="${CHROME_MAJOR}", "Not?A_Brand";v="99"`,
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": `"${CH_PLATFORM}"`,
+      }
+    : {}),
   "sec-fetch-dest": "document",
   "sec-fetch-mode": "navigate",
   "sec-fetch-site": "none",

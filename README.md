@@ -136,7 +136,7 @@ Log into Facebook in a browser, export the cookies for facebook.com (devtools, o
 - `FB_COOKIES_FILE=/path/to/file` (preferred; use a Docker secret), or
 - `FB_COOKIES="c_user=...; xs=..."` (a raw Cookie header, a `{name: value}` JSON object, or a JSON array export).
 
-Set `FB_USER_AGENT` and `FB_CH_PLATFORM` (`Windows`, `Linux`, `macOS`) to match the browser the cookies came from. When the session expires you'll get an error asking you to re-export. Consider a throwaway account: this violates Facebook's ToS.
+Set `FB_USER_AGENT` (or `FB_USER_AGENT_FILE`) and `FB_CH_PLATFORM` (`Windows`, `Linux`, `macOS`) to match the browser the cookies came from. When the session expires you'll get an error asking you to re-export. Consider a throwaway account: this violates Facebook's ToS.
 
 Other env: `FB_SEARCH_DOC_ID` / `FB_LOCATION_DOC_ID` (override rotated doc_ids), `FB_STORAGE_DIR` (monitors), `FB_MAX_RPM` (default 3).
 

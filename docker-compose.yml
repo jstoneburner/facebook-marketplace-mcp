@@ -9,8 +9,8 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set to the host:port clients use, comma-separated}
       MCP_AUTH_TOKEN_FILE: /run/secrets/mcp_token
       FB_COOKIES_FILE: /run/secrets/fb_cookies
-      FB_USER_AGENT: ${FB_USER_AGENT:-}
-    secrets: [mcp_token, fb_cookies]
+      FB_USER_AGENT_FILE: /run/secrets/fb_user_agent
+    secrets: [mcp_token, fb_cookies, fb_user_agent]
     volumes:
       - fb-data:/data
     read_only: true
@@ -22,5 +22,7 @@ secrets:
     file: ./secrets/mcp_token
   fb_cookies:
     file: ./secrets/fb_cookies
+  fb_user_agent:
+    file: ./secrets/fb_user_agent.txt
 volumes:
   fb-data:
